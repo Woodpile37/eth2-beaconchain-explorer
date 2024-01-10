@@ -345,9 +345,9 @@ func main() {
 		}
 
 		if *enableEnsUpdater {
-			err := bt.ImportEnsUpdates(client.GetNativeClient())
+			err := bt.ImportEnsUpdates(client.GetNativeClient(), 1000)
 			if err != nil {
-				logrus.WithError(err).Errorf("error updating ens")
+				utils.LogError(err, "error importing ens updates", 0, nil)
 				continue
 			}
 		}
@@ -481,6 +481,19 @@ func HandleChainReorgs(bt *db.Bigtable, client *rpc.ErigonClient, depth int) err
 		if !bytes.Equal(nodeBlock.Hash().Bytes(), dbBlock.Hash) {
 			logrus.Warnf("found incosistency at height %v, node block hash: %x, db block hash: %x", i, nodeBlock.Hash().Bytes(), dbBlock.Hash)
 
+			// first we set the cached marker of the last block in the blocks/data table to the block prior to the forked one
+			if i > 0 {
+				previousBlock := i - 1
+				err := bt.SetLastBlockInBlocksTable(int64(previousBlock))
+				if err != nil {
+					return fmt.Errorf("error setting last block [%v] in blocks table: %w", previousBlock, err)
+				}
+				err = bt.SetLastBlockInDataTable(int64(previousBlock))
+				if err != nil {
+					return fmt.Errorf("error setting last block [%v] in data table: %w", previousBlock, err)
+				}
+				// now we can proceed to delete all blocks including and after the forked block
+			}
 			// delete all blocks starting from the fork block up to the latest block in the db
 			for j := i; j <= latestNodeBlockNumber; j++ {
 				dbBlock, err := bt.GetBlockFromBlocksTable(j)
@@ -491,6 +504,7 @@ func HandleChainReorgs(bt *db.Bigtable, client *rpc.ErigonClient, depth int) err
 					return err
 				}
 				logrus.Infof("deleting block at height %v with hash %x", dbBlock.Number, dbBlock.Hash)
+
 				err = bt.DeleteBlock(dbBlock.Number, dbBlock.Hash)
 				if err != nil {
 					return err

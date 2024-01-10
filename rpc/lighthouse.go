@@ -994,6 +994,7 @@ func (lc *LighthouseClient) blockFromResponse(parsedHeaders *StandardBeaconHeade
 					tx.BlobVersionedHashes = append(tx.BlobVersionedHashes, h.Bytes())
 				}
 			}
+			txs = append(txs, tx)
 		}
 		withdrawals := make([]*types.Withdrawals, 0, len(payload.Withdrawals))
 		for _, w := range payload.Withdrawals {
@@ -1269,7 +1270,7 @@ var errNotFound = errors.New("not found 404")
 func (lc *LighthouseClient) get(url string) ([]byte, error) {
 	// t0 := time.Now()
 	// defer func() { fmt.Println(url, time.Since(t0)) }()
-	client := &http.Client{Timeout: time.Second * 120}
+	client := &http.Client{Timeout: time.Minute * 2}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
