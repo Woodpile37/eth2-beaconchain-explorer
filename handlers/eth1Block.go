@@ -147,7 +147,13 @@ func GetExecutionBlockPageData(number uint64, limit int) (*types.Eth1BlockPageDa
 	lowestGasPrice := big.NewInt(1 << 62)
 	blobTxCount := 0
 	blobCount := 0
-	for _, tx := range block.Transactions {
+
+	txIsContractList, err := db.BigtableClient.GetAddressIsContractAtBlock(block)
+	if err != nil {
+		utils.LogError(err, "error getting contract states", 0)
+	}
+
+	for i, tx := range block.Transactions {
 		if tx.Type == 3 {
 			blobTxCount++
 			blobCount += len(tx.BlobVersionedHashes)
@@ -166,20 +172,15 @@ func GetExecutionBlockPageData(number uint64, limit int) (*types.Eth1BlockPageDa
 			}
 		}
 
+		contractCreation := tx.GetTo() == nil
 		// set tx to if tx is contract creation
-		if tx.To == nil && len(tx.Itx) >= 1 {
-			tx.To = tx.Itx[0].To
-			names[string(tx.To)] = "Contract Creation"
+		if contractCreation {
+			tx.To = tx.ContractAddress
 		}
 
-		method := "Transfer"
-		{
-			d := tx.GetData()
-			if len(d) > 3 {
-				m := d[:4]
-				invokesContract := len(tx.GetItx()) > 0 || tx.GetGasUsed() > 21000 || tx.GetErrorMsg() != ""
-				method = db.BigtableClient.GetMethodLabel(m, invokesContract)
-			}
+		var isContractInteraction types.ContractInteractionType
+		if len(txIsContractList) > i {
+			isContractInteraction = txIsContractList[i]
 		}
 
 		txs = append(txs, types.Eth1BlockPageTransaction{
@@ -188,11 +189,11 @@ func GetExecutionBlockPageData(number uint64, limit int) (*types.Eth1BlockPageDa
 			From:          fmt.Sprintf("%#x", tx.From),
 			FromFormatted: utils.FormatAddressWithLimits(tx.From, names[string(tx.From)], false, "address", 15, 20, true),
 			To:            fmt.Sprintf("%#x", tx.To),
-			ToFormatted:   utils.FormatAddressWithLimits(tx.To, names[string(tx.To)], names[string(tx.To)] == "Contract Creation" || len(method) > 0, "address", 15, 20, true),
+			ToFormatted:   utils.FormatAddressWithLimits(tx.To, db.BigtableClient.GetAddressLabel(names[string(tx.To)], isContractInteraction), isContractInteraction != types.CONTRACT_NONE, "address", 15, 20, true),
 			Value:         new(big.Int).SetBytes(tx.Value),
 			Fee:           txFee,
 			GasPrice:      effectiveGasPrice,
-			Method:        method,
+			Method:        db.BigtableClient.GetMethodLabel(tx.GetData(), isContractInteraction),
 		})
 	}
 
