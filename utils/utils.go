@@ -129,7 +129,6 @@ func GetTemplateFuncs() template.FuncMap {
 		"formatValidatorName":                     FormatValidatorName,
 		"formatAttestationInclusionEffectiveness": FormatAttestationInclusionEffectiveness,
 		"formatValidatorTags":                     FormatValidatorTags,
-		"formatValidatorTag":                      FormatValidatorTag,
 		"formatRPL":                               FormatRPL,
 		"formatETH":                               FormatETH,
 		"formatFloat":                             FormatFloat,
@@ -143,6 +142,7 @@ func GetTemplateFuncs() template.FuncMap {
 		"formatAddressAsLink":                     FormatAddressAsLink,
 		"formatBuilder":                           FormatBuilder,
 		"formatDifficulty":                        FormatDifficulty,
+		"formatHeaderHash":                        FormatHeaderHash,
 		"getCurrencyLabel":                        price.GetCurrencyLabel,
 		"config":                                  func() *types.Config { return Config },
 		"epochOfSlot":                             EpochOfSlot,
@@ -243,6 +243,28 @@ func GetTemplateFuncs() template.FuncMap {
 				dict[key] = values[i+1]
 			}
 			return dict, nil
+		},
+		"labelCheckIcon": func(value *bool) string {
+			if value == nil {
+				return "❓"
+			} else if *value {
+				return "✅"
+			}
+			return "❌"
+		},
+		"labelYesNo": func(value *bool) string {
+			if value == nil {
+				return "?"
+			} else if *value {
+				return "Yes"
+			}
+			return "No"
+		},
+		"labelOrQuestionmark": func(value string) string {
+			if len(value) > 0 {
+				return value
+			}
+			return "?"
 		},
 	}
 }

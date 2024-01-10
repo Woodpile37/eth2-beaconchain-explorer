@@ -1,17 +1,3 @@
-var bannerContainer = document.querySelector(".info-banner-container")
-var bannerSearch = document.querySelector(".info-banner-search")
-var bannerSearchIcon = document.getElementById("banner-search")
-var bannerSearchInput = document.getElementById("banner-search-input")
-
-bannerSearch.addEventListener("click", function () {
-  bannerContainer.classList.add("searching")
-  bannerSearchInput.focus()
-})
-
-bannerSearchInput.addEventListener("blur", function () {
-  bannerContainer.classList.remove("searching")
-})
-
 function getCookie(cname) {
   var name = cname + "="
   var ca = document.cookie.split(";")
@@ -115,11 +101,7 @@ function updateBanner() {
         // delete sync if it exists otherwise do nothing
         var statusHandle = document.getElementById("banner-status")
         if (statusHandle) {
-          var homeHtml = `
-          <a id="banner-home" style="white-space: nowrap;" class="mr-2" href="/"><i class="fas fa-home"></i> <span>|</span></a>
-          `
           statusHandle.remove()
-          document.getElementById("banner-stats").insertAdjacentHTML("afterbegin", homeHtml)
         }
       }
     })

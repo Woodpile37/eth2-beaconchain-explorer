@@ -4,12 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"eth2-exporter/db"
-	"eth2-exporter/services"
 	"eth2-exporter/templates"
 	"eth2-exporter/types"
 	"eth2-exporter/utils"
 	"fmt"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,18 +17,14 @@ import (
 
 // Epoch will show the epoch using a go template
 func Epoch(w http.ResponseWriter, r *http.Request) {
-	epochTemplateFiles := append(layoutTemplateFiles,
-		"epoch.html",
-		"components/timestamp.html")
-	epochFutureTemplateFiles := append(layoutTemplateFiles,
-		"epochFuture.html",
-		"components/timestamp.html")
+	epochTemplateFiles := append(layoutTemplateFiles, "epoch.html")
+	epochFutureTemplateFiles := append(layoutTemplateFiles, "epochFuture.html")
 	epochNotFoundTemplateFiles := append(layoutTemplateFiles, "epochnotfound.html")
 	var epochTemplate = templates.GetTemplate(epochTemplateFiles...)
 	var epochFutureTemplate = templates.GetTemplate(epochFutureTemplateFiles...)
 	var epochNotFoundTemplate = templates.GetTemplate(epochNotFoundTemplateFiles...)
 
-	const MaxEpochValue = math.MaxUint32 + 1 // we only render a page for epochs up to this value
+	const MaxEpochValue = 4294967296 // we only render a page for epochs up to this value
 
 	w.Header().Set("Content-Type", "text/html")
 	vars := mux.Vars(r)
@@ -50,7 +44,6 @@ func Epoch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	epochPageData := types.EpochPageData{}
-	latestFinalizedEpoch := services.LatestFinalizedEpoch()
 
 	err = db.ReaderDb.Get(&epochPageData, `
 		SELECT 
@@ -63,12 +56,12 @@ func Epoch(w http.ResponseWriter, r *http.Request) {
 			voluntaryexitscount, 
 			validatorscount, 
 			averagevalidatorbalance, 
-			(epoch <= $2) AS finalized,
+			finalized,
 			eligibleether,
 			globalparticipationrate,
 			votedether
 		FROM epochs 
-		WHERE epoch = $1`, epoch, latestFinalizedEpoch)
+		WHERE epoch = $1`, epoch)
 	if err != nil {
 		//Epoch not in database -> Show future epoch
 		if epoch > MaxEpochValue {
@@ -80,21 +73,20 @@ func Epoch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Create placeholder structs
-		blocks := make([]*types.IndexPageDataBlocks, utils.Config.Chain.ClConfig.SlotsPerEpoch)
+		blocks := make([]*types.OldIndexPageDataBlocks, utils.Config.Chain.Config.SlotsPerEpoch)
 		for i := range blocks {
-			slot := uint64(i) + (epoch * utils.Config.Chain.ClConfig.SlotsPerEpoch)
-			block := types.IndexPageDataBlocks{
+			slot := uint64(i) + (epoch * utils.Config.Chain.Config.SlotsPerEpoch)
+			block := types.OldIndexPageDataBlocks{
 				Epoch:  epoch,
 				Slot:   slot,
 				Ts:     utils.SlotToTime(slot),
 				Status: 4,
 			}
-			n := int(utils.Config.Chain.ClConfig.SlotsPerEpoch) - 1 - i
-			blocks[n] = &block
+			blocks[31-i] = &block
 		}
 		epochPageData = types.EpochPageData{
 			Epoch:         epoch,
-			BlocksCount:   utils.Config.Chain.ClConfig.SlotsPerEpoch,
+			BlocksCount:   utils.Config.Chain.Config.SlotsPerEpoch,
 			PreviousEpoch: epoch - 1,
 			NextEpoch:     epoch + 1,
 			Ts:            utils.EpochToTime(epoch),
